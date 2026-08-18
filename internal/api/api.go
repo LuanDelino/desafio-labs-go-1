@@ -1,0 +1,125 @@
+// Package api e' a borda HTTP: extrai o CEP da requisicao, costura a busca de
+// endereco com a de clima e traduz erro de dominio em status HTTP.
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"desafio-labs-go-1/internal/cep"
+	"desafio-labs-go-1/internal/temperature"
+	"desafio-labs-go-1/internal/weather"
+)
+
+// As duas interfaces abaixo sao declaradas aqui, no consumidor, e nao nos
+// pacotes que as satisfazem. E' o que permite testar o handler com dublês sem
+// que cep e weather saibam da existencia deste pacote.
+
+// BuscadorDeCEP resolve um CEP em endereco.
+type BuscadorDeCEP interface {
+	Buscar(ctx context.Context, codigo string) (cep.Endereco, error)
+}
+
+// ConsultorDeClima devolve a temperatura atual, em Celsius, de uma localidade.
+type ConsultorDeClima interface {
+	Atual(ctx context.Context, local weather.Local) (float64, error)
+}
+
+// resposta e' o contrato de sucesso do desafio. Os nomes dos campos sao
+// literais do enunciado, inclusive o maiusculo depois do underscore.
+type resposta struct {
+	TempC float64 `json:"temp_C"`
+	TempF float64 `json:"temp_F"`
+	TempK float64 `json:"temp_K"`
+}
+
+// Handler serve o endpoint de clima por CEP.
+type Handler struct {
+	ceps  BuscadorDeCEP
+	clima ConsultorDeClima
+	mux   *http.ServeMux
+}
+
+// NewHandler monta o roteamento sobre as duas dependencias.
+func NewHandler(ceps BuscadorDeCEP, clima ConsultorDeClima) *Handler {
+	h := &Handler{ceps: ceps, clima: clima}
+
+	h.mux = http.NewServeMux()
+	h.mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	// O enunciado nao fixa o caminho. Servimos as duas convencoes em uso —
+	// GET /{cep} e GET /?cep=... — para nao depender de adivinhar qual delas
+	// a correcao vai usar.
+	h.mux.HandleFunc("GET /{cep}", h.clima_por_cep)
+	h.mux.HandleFunc("GET /{$}", h.clima_por_cep)
+
+	return h
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
+}
+
+func (h *Handler) clima_por_cep(w http.ResponseWriter, r *http.Request) {
+	codigo := r.PathValue("cep")
+	if codigo == "" {
+		codigo = r.URL.Query().Get("cep")
+	}
+
+	endereco, err := h.ceps.Buscar(r.Context(), codigo)
+	if err != nil {
+		responderErro(w, err)
+		return
+	}
+
+	celsius, err := h.clima.Atual(r.Context(), weather.Local{
+		Cidade: endereco.Localidade,
+		UF:     endereco.UF,
+	})
+	if err != nil {
+		responderErro(w, err)
+		return
+	}
+
+	lido := temperature.FromCelsius(celsius)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resposta{
+		TempC: lido.Celsius,
+		TempF: lido.Fahrenheit,
+		TempK: lido.Kelvin,
+	})
+}
+
+// responderErro traduz erro de dominio em status HTTP. O corpo e' a mensagem
+// crua porque e' assim que o enunciado especifica os dois casos de falha.
+func responderErro(w http.ResponseWriter, err error) {
+	status, msg := classificar(err)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write([]byte(msg + "\n"))
+}
+
+func classificar(err error) (int, string) {
+	switch {
+	case errors.Is(err, cep.ErrFormatoInvalido):
+		return http.StatusUnprocessableEntity, "invalid zipcode"
+	case errors.Is(err, cep.ErrNaoEncontrado):
+		return http.StatusNotFound, "can not find zipcode"
+
+	// Falha nossa nunca vira 404: dizer "CEP nao encontrado" quando o ViaCEP
+	// esta' fora do ar mente para quem chama e esconde o incidente.
+	case errors.Is(err, weather.ErrSemChave):
+		return http.StatusInternalServerError, "internal error"
+	case errors.Is(err, cep.ErrIndisponivel),
+		errors.Is(err, weather.ErrIndisponivel),
+		errors.Is(err, weather.ErrLocalNaoEncontrado):
+		return http.StatusBadGateway, "upstream unavailable"
+	default:
+		return http.StatusInternalServerError, "internal error"
+	}
+}

@@ -1,0 +1,9 @@
+# segredos — nunca versionar
+.env
+deployments/.env
+*.env
+!*.env.example
+
+# binários
+/bin/
+/server
