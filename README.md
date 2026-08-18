@@ -5,7 +5,11 @@ temperatura atual em Celsius, Fahrenheit e Kelvin.
 
 ## URL no Cloud Run
 
-    (a preencher apos o deploy)
+<https://clima-cep-172943883906.us-central1.run.app>
+
+```bash
+curl https://clima-cep-172943883906.us-central1.run.app/01310100
+```
 
 ## Contrato
 
@@ -107,3 +111,26 @@ o handler é testável com dublês sem que os clientes saibam da borda.
 
 A imagem final é `distroless/static:nonroot` (~16 MB): sem shell, sem
 gerenciador de pacotes e sem compilador.
+
+## Deploy
+
+A imagem publicada é a mesma que o `docker build` local produz — não há build
+separado para produção.
+
+```bash
+IMG=us-central1-docker.pkg.dev/<PROJETO>/apps/clima-cep:$(git rev-parse --short HEAD)
+
+docker build -f deployments/Dockerfile -t "$IMG" .
+docker push "$IMG"
+
+gcloud run deploy clima-cep \
+  --image="$IMG" --region=us-central1 \
+  --allow-unauthenticated --port=8080 \
+  --cpu=1 --memory=128Mi --min-instances=0 --max-instances=1 \
+  --set-secrets=WEATHER_API=WEATHER_API:latest
+```
+
+A chave vai por Secret Manager, não por `--set-env-vars`: assim ela não
+aparece em `gcloud run services describe` nem no log de deploy. A tag da
+imagem é o hash do commit, para que a revisão em produção seja rastreável até
+o código que a gerou.
