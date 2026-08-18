@@ -145,9 +145,18 @@ func TestFalhas(t *testing.T) {
 			if rec.Code != cs.querStatus {
 				t.Fatalf("status = %d, quero %d. corpo: %s", rec.Code, cs.querStatus, rec.Body)
 			}
+			if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+				t.Errorf("Content-Type = %q, quero application/json", ct)
+			}
 			if cs.querMsg != "" {
-				if got := strings.TrimSpace(rec.Body.String()); got != cs.querMsg {
-					t.Errorf("corpo = %q, quero %q", got, cs.querMsg)
+				var e struct {
+					Message string `json:"message"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+					t.Fatalf("corpo nao e' json: %v (%s)", err, rec.Body)
+				}
+				if e.Message != cs.querMsg {
+					t.Errorf("message = %q, quero %q", e.Message, cs.querMsg)
 				}
 			}
 		})

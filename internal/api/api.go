@@ -33,6 +33,12 @@ type resposta struct {
 	TempK float64 `json:"temp_K"`
 }
 
+// erroResposta mantém sucesso e falha no mesmo formato: quem consome decodifica
+// JSON sempre, sem ramificar por status.
+type erroResposta struct {
+	Message string `json:"message"`
+}
+
 // Handler serve o endpoint de clima por CEP.
 type Handler struct {
 	ceps  BuscadorDeCEP
@@ -91,12 +97,12 @@ func (h *Handler) climaPorCEP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// O corpo é a mensagem crua porque é assim que o enunciado especifica as falhas.
+// As mensagens são as literais do enunciado; só o invólucro é JSON.
 func responderErro(w http.ResponseWriter, err error) {
 	status, msg := classificar(err)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	w.Write([]byte(msg + "\n"))
+	json.NewEncoder(w).Encode(erroResposta{Message: msg})
 }
 
 func classificar(err error) (int, string) {

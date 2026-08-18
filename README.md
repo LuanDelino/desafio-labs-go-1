@@ -29,7 +29,14 @@ Também aceito como `GET /?cep=01310100`.
 
 **Falhas**
 
-| Condição | Status | Corpo |
+Sucesso e falha usam o mesmo formato: quem consome decodifica JSON sempre, sem
+ramificar por status.
+
+```json
+{ "message": "invalid zipcode" }
+```
+
+| Condição | Status | `message` |
 | --- | --- | --- |
 | CEP fora do formato de 8 dígitos | `422` | `invalid zipcode` |
 | CEP bem formado, mas inexistente | `404` | `can not find zipcode` |

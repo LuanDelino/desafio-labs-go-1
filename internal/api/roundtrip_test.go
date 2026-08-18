@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 
 	"desafio-labs-go-1/internal/cep"
@@ -52,8 +51,14 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatalf("status = %d, quero %d. corpo: %s", rec.Code, c.status, rec.Body)
 			}
 			if c.msg != "" {
-				if got := strings.TrimSpace(rec.Body.String()); got != c.msg {
-					t.Fatalf("corpo = %q, quero %q", got, c.msg)
+				var e struct {
+					Message string `json:"message"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+					t.Fatalf("corpo nao e' json: %v (%s)", err, rec.Body)
+				}
+				if e.Message != c.msg {
+					t.Fatalf("message = %q, quero %q", e.Message, c.msg)
 				}
 				return
 			}
