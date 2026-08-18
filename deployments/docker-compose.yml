@@ -1,18 +1,16 @@
-# Compose de desenvolvimento: sobe a mesma imagem de produção que vai para o
-# Cloud Run, para o que se testa aqui ser o que se publica lá.
+# Sobe a mesma imagem que vai para o Cloud Run: o que se testa aqui é o que se
+# publica lá.
 services:
   api:
     build:
       context: ..
       dockerfile: deployments/Dockerfile
     image: clima-cep:dev
-    # Falha rápido se WEATHER_API não estiver definida, em vez de subir um
-    # servidor que devolve 500 em toda requisição.
     environment:
+      # Falha rápido em vez de subir um servidor que devolve 500 em todo request.
       WEATHER_API: ${WEATHER_API:?defina WEATHER_API em deployments/.env}
       PORT: "8080"
-    env_file:
-      - .env
+    # PORTA troca só a porta do host, para o caso de 8080 já estar ocupada.
     ports:
-      - "8080:8080"
+      - "${PORTA:-8080}:8080"
     restart: unless-stopped

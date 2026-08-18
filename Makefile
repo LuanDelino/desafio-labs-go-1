@@ -20,14 +20,14 @@ test: ## Testes offline, sem chave
 	go test ./...
 
 .PHONY: test-roundtrip
-test-roundtrip: ## Testes contra ViaCEP e WeatherAPI reais (exige $(ENVFILE))
+test-roundtrip: ## Testes contra ViaCEP e WeatherAPI reais (exige deployments/.env)
 	set -a && . ./$(ENVFILE) && set +a && go test -tags roundtrip -count=1 ./internal/api/
 
 .PHONY: check
 check: fmt vet test ## Formata, analisa e testa
 
 .PHONY: run
-run: ## Sobe o servidor sem container (exige $(ENVFILE))
+run: ## Sobe o servidor sem container (exige deployments/.env)
 	set -a && . ./$(ENVFILE) && set +a && go run ./cmd/server
 
 .PHONY: build
@@ -39,9 +39,9 @@ docker-build: ## Constrói a imagem de produção
 	docker build -f deployments/Dockerfile -t $(IMAGEM) .
 
 .PHONY: up
-up: docker-build ## Sobe via docker compose
-	docker compose -f deployments/docker-compose.yml up --build
+up: ## Sobe via docker compose (PORTA=8081 make up troca a porta do host)
+	PORTA=$(PORTA) docker compose -f deployments/docker-compose.yml up --build
 
 .PHONY: down
 down: ## Derruba o docker compose
-	docker compose -f deployments/docker-compose.yml down
+	PORTA=$(PORTA) docker compose -f deployments/docker-compose.yml down

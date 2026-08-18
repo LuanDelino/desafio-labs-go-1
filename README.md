@@ -63,32 +63,67 @@ cp deployments/.env.example deployments/.env
 # edite deployments/.env e preencha WEATHER_API=
 ```
 
-### Via Docker
+### Via Docker Compose
 
 ```bash
-docker build -f deployments/Dockerfile -t clima-cep:dev .
-docker run --rm -p 8080:8080 --env-file deployments/.env clima-cep:dev
+make up          # sobe em http://localhost:8080
+make down
 ```
 
+Se a porta 8080 já estiver ocupada na sua máquina:
+
 ```bash
-curl localhost:8080/01310100
-curl localhost:8080/1234567    # 422
-curl localhost:8080/99999999   # 404
+PORTA=8091 make up
+```
+
+`PORTA` troca só a porta do host — dentro do container o servidor continua em
+8080, como no Cloud Run.
+
+O compose constrói a **mesma imagem** que vai para produção, e falha na hora se
+`WEATHER_API` não estiver definida, em vez de subir um servidor que devolveria
+500 em toda requisição.
+
+### Via Docker, sem compose
+
+```bash
+make docker-build
+docker run --rm -p 8080:8080 --env-file deployments/.env clima-cep:dev
 ```
 
 ### Sem Docker
 
 ```bash
-export WEATHER_API=sua-chave
-go run ./cmd/server
+make run
 ```
 
-`PORT` controla a porta (padrão `8080`); no Cloud Run ela é injetada.
+`PORT` controla a porta do servidor (padrão `8080`); no Cloud Run ela é injetada.
+
+### Experimentando
+
+```bash
+curl localhost:8080/01310100   # 200
+curl localhost:8080/1234567    # 422
+curl localhost:8080/99999999   # 404
+```
+
+### Atalhos
+
+`make help` lista todos. Os que importam:
+
+| Alvo | O que faz |
+| --- | --- |
+| `make up` / `make down` | sobe e derruba via compose |
+| `make test` | testes offline, sem chave |
+| `make test-roundtrip` | testes contra ViaCEP e WeatherAPI reais |
+| `make check` | `fmt` + `vet` + `test` |
+| `make run` | servidor sem container |
+| `make build` | binário em `bin/server` |
+| `make docker-build` | imagem de produção |
 
 ## Testes
 
 ```bash
-go test ./...
+make test        # ou: go test ./...
 ```
 
 Rodam offline e sem chave: as chamadas ao ViaCEP e à WeatherAPI são servidas
@@ -99,8 +134,7 @@ formas (`true` e `"true"`) que esse campo já teve.
 Para exercitar as APIs de verdade:
 
 ```bash
-set -a && . ./deployments/.env && set +a
-go test -tags roundtrip -count=1 ./internal/api/
+make test-roundtrip
 ```
 
 ## Organização
@@ -111,6 +145,8 @@ go test -tags roundtrip -count=1 ./internal/api/
     internal/temperature/  conversões entre escalas
     internal/api/          borda HTTP: rotas, contrato JSON, status
     deployments/Dockerfile imagem de produção
+    deployments/docker-compose.yml  stack de desenvolvimento
+    Makefile               atalhos (make help)
 
 `cep` e `weather` não se conhecem — quem costura é `api`, que declara as
 interfaces de que precisa no próprio pacote (consumer-side), e é por isso que
