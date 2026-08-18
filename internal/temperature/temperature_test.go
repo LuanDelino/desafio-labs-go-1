@@ -9,9 +9,8 @@ func TestFromCelsius(t *testing.T) {
 		f       float64
 		k       float64
 	}{
-		// O exemplo do enunciado (28.5) traz temp_K 301.65, que equivale a
-		// C + 273.15. A fórmula normativa manda C + 273 -> 301.5. Seguimos a
-		// fórmula; este caso registra a divergência de propósito.
+		// O enunciado exemplifica 301.65 (C+273.15) mas manda C+273.
+		// Seguimos a fórmula; este caso registra a divergência.
 		{"exemplo do enunciado", 28.5, 83.3, 301.5},
 		{"zero", 0, 32, 273},
 		{"negativo", -10, 14, 263},

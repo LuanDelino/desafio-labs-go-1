@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,7 +60,7 @@ func TestSucesso(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("corpo nao e' json: %v (%s)", err, rec.Body)
 	}
-	// As chaves sao exatamente as do contrato do desafio.
+	// Chaves literais do contrato.
 	quer := map[string]float64{"temp_C": 28.5, "temp_F": 83.3, "temp_K": 301.5}
 	if len(got) != len(quer) {
 		t.Errorf("corpo tem %d campos (%v), quero %d", len(got), got, len(quer))
@@ -191,7 +190,9 @@ func TestLocalRepassadoAoClima(t *testing.T) {
 	if visto.Cidade != "Santa Maria" || visto.UF != "RS" {
 		t.Errorf("local = %+v, quero Santa Maria/RS", visto)
 	}
-	_ = fmt.Sprint(rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, quero 200", rec.Code)
+	}
 }
 
 type funcClima func(context.Context, weather.Local) (float64, error)

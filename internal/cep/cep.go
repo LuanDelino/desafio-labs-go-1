@@ -13,19 +13,12 @@ import (
 	"time"
 )
 
-// Os erros que o resto do sistema precisa distinguir. O handler os traduz em
-// status HTTP; nada fora daqui conhece o formato da resposta do ViaCEP.
 var (
-	// ErrFormatoInvalido: nao sao oito digitos. Vira 422 na borda.
 	ErrFormatoInvalido = errors.New("invalid zipcode")
-	// ErrNaoEncontrado: formato bom, CEP inexistente. Vira 404 na borda.
-	ErrNaoEncontrado = errors.New("can not find zipcode")
-	// ErrIndisponivel: a consulta em si falhou (rede, 5xx, corpo ilegivel).
-	ErrIndisponivel = errors.New("cep lookup unavailable")
+	ErrNaoEncontrado   = errors.New("can not find zipcode")
+	ErrIndisponivel    = errors.New("cep lookup unavailable")
 )
 
-// oitoDigitos e' o formato literal exigido pelo desafio: oito digitos, nada
-// mais. Hifen e espaco contam como caractere invalido, nao como ruido a limpar.
 var oitoDigitos = regexp.MustCompile(`^[0-9]{8}$`)
 
 // Validar diz se o CEP tem o formato aceito, sem tocar na rede.
@@ -36,7 +29,7 @@ func Validar(cep string) error {
 	return nil
 }
 
-// Endereco e' o recorte do ViaCEP que este sistema usa.
+// Endereco é o recorte do ViaCEP que este sistema usa.
 type Endereco struct {
 	CEP        string
 	Localidade string
@@ -51,11 +44,10 @@ type Client struct {
 	http    *http.Client
 }
 
-// Option ajusta o Client na construcao.
+// Option ajusta o Client na construção.
 type Option func(*Client)
 
-// WithBaseURL troca o endereco do ViaCEP — e' o que permite apontar para um
-// httptest.Server no teste sem mexer em variavel global.
+// WithBaseURL troca o endereço do ViaCEP.
 func WithBaseURL(u string) Option {
 	return func(c *Client) { c.baseURL = strings.TrimSuffix(u, "/") }
 }
@@ -65,8 +57,7 @@ func WithHTTPClient(h *http.Client) Option {
 	return func(c *Client) { c.http = h }
 }
 
-// NewClient monta um Client com timeout proprio, para uma consulta lenta nao
-// segurar a requisicao do usuario indefinidamente.
+// NewClient monta um Client com timeout próprio.
 func NewClient(opts ...Option) *Client {
 	c := &Client{
 		baseURL: baseURLPadrao,
@@ -78,31 +69,25 @@ func NewClient(opts ...Option) *Client {
 	return c
 }
 
-// respostaViaCEP espelha o corpo do ViaCEP. O campo erro chega ora como
-// booleano, ora como a string "true", dependendo da versao — por isso ele e'
-// json.RawMessage e nao bool: decodificar em bool quebra na string.
 type respostaViaCEP struct {
-	CEP        string          `json:"cep"`
-	Localidade string          `json:"localidade"`
-	UF         string          `json:"uf"`
-	Erro       json.RawMessage `json:"erro"`
+	CEP        string `json:"cep"`
+	Localidade string `json:"localidade"`
+	UF         string `json:"uf"`
+	// RawMessage porque o campo já veio como booleano e como a string "true".
+	Erro json.RawMessage `json:"erro"`
 }
 
-// naoEncontrado interpreta o campo erro nas duas formas que a API ja usou.
 func (r respostaViaCEP) naoEncontrado() bool {
-	switch strings.Trim(string(r.Erro), `"`) {
-	case "true":
+	if strings.Trim(string(r.Erro), `"`) == "true" {
 		return true
 	}
-	// Sem o campo erro, cidade vazia significa a mesma coisa: nao da' para
-	// seguir para o clima.
 	return r.Localidade == ""
 }
 
 // Buscar valida o formato e resolve o CEP em cidade e UF.
 //
-// O ViaCEP responde 200 OK mesmo para CEP inexistente, sinalizando a ausencia
-// no corpo. Por isso o status sozinho nao decide nada aqui.
+// O ViaCEP responde 200 OK para CEP inexistente e sinaliza a ausência no
+// corpo, então o status sozinho não decide nada aqui.
 func (c *Client) Buscar(ctx context.Context, cep string) (Endereco, error) {
 	if err := Validar(cep); err != nil {
 		return Endereco{}, err
@@ -120,8 +105,8 @@ func (c *Client) Buscar(ctx context.Context, cep string) (Endereco, error) {
 	}
 	defer resp.Body.Close()
 
-	// 400 e' como o ViaCEP recusa um CEP que ele considera malformado. Para
-	// quem chama, isso e' indistinguivel de inexistente.
+	// 400 é como o ViaCEP recusa um CEP malformado: para quem chama, o mesmo
+	// que inexistente.
 	if resp.StatusCode == http.StatusBadRequest {
 		return Endereco{}, fmt.Errorf("cep %q: %w", cep, ErrNaoEncontrado)
 	}

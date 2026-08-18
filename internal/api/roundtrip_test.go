@@ -1,8 +1,7 @@
 //go:build roundtrip
 
 // Verificacao de ponta a ponta contra o ViaCEP e a WeatherAPI de verdade.
-// Fica atras da tag roundtrip porque depende de rede e de chave: `go test ./...`
-// continua rodando offline e deterministico.
+// Atras da tag roundtrip para que `go test ./...` siga offline:
 //
 //	WEATHER_API=... go test -tags roundtrip ./internal/api/
 package api
@@ -68,8 +67,7 @@ func TestRoundTrip(t *testing.T) {
 					t.Errorf("falta o campo %s em %v", k, r)
 				}
 			}
-			// As tres escalas tem que ser coerentes entre si, com a folga do
-			// arredondamento em duas casas.
+			// As tres escalas tem que ser coerentes entre si.
 			if d := r["temp_F"] - (r["temp_C"]*1.8 + 32); d > 0.01 || d < -0.01 {
 				t.Errorf("temp_F incoerente com temp_C: %v", r)
 			}

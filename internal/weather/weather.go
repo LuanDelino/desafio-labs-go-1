@@ -14,25 +14,20 @@ import (
 )
 
 var (
-	// ErrLocalNaoEncontrado: a WeatherAPI nao reconheceu a localidade.
 	ErrLocalNaoEncontrado = errors.New("weather location not found")
-	// ErrIndisponivel: a consulta falhou (rede, chave recusada, 5xx, corpo ilegivel).
-	ErrIndisponivel = errors.New("weather lookup unavailable")
-	// ErrSemChave: o servico subiu sem WEATHER_API configurada.
-	ErrSemChave = errors.New("weather api key not configured")
+	ErrIndisponivel       = errors.New("weather lookup unavailable")
+	ErrSemChave           = errors.New("weather api key not configured")
 )
 
-// Local e' o endereco no vocabulario desta consulta. E' um tipo proprio, e nao
-// o Endereco do pacote cep, para que weather nao dependa de cep: os dois sao
-// folhas independentes e quem costura e' a borda HTTP.
+// Local é o endereço no vocabulário desta consulta. É tipo próprio, e não o
+// Endereco de cep, para que os dois pacotes não se conheçam.
 type Local struct {
 	Cidade string
 	UF     string
 	Pais   string
 }
 
-// consulta monta o termo de busca. Cidade sozinha e' ambigua — ha' mais de uma
-// Santa Maria no Brasil — entao UF e pais entram sempre que existirem.
+// UF e país entram sempre: cidade sozinha é ambígua (há mais de uma Santa Maria).
 func (l Local) consulta() string {
 	partes := []string{l.Cidade}
 	if l.UF != "" {
@@ -47,8 +42,7 @@ func (l Local) consulta() string {
 
 const baseURLPadrao = "https://api.weatherapi.com/v1"
 
-// codigoLocalDesconhecido e' o codigo com que a WeatherAPI sinaliza localidade
-// inexistente, dentro de uma resposta 400.
+// Código com que a WeatherAPI sinaliza localidade inexistente, dentro de um 400.
 const codigoLocalDesconhecido = 1006
 
 // Client consulta a WeatherAPI.
@@ -58,10 +52,10 @@ type Client struct {
 	http    *http.Client
 }
 
-// Option ajusta o Client na construcao.
+// Option ajusta o Client na construção.
 type Option func(*Client)
 
-// WithBaseURL aponta o cliente para outro endereco — usado pelo httptest.
+// WithBaseURL aponta o cliente para outro endereço.
 func WithBaseURL(u string) Option {
 	return func(c *Client) { c.baseURL = strings.TrimSuffix(u, "/") }
 }
@@ -102,7 +96,7 @@ func (c *Client) Atual(ctx context.Context, l Local) (float64, error) {
 
 	q := url.Values{}
 	q.Set("key", c.apiKey)
-	q.Set("q", l.consulta()) // Encode() cuida do acento e da virgula.
+	q.Set("q", l.consulta())
 	q.Set("aqi", "no")
 	endereco := fmt.Sprintf("%s/current.json?%s", c.baseURL, q.Encode())
 
@@ -126,9 +120,8 @@ func (c *Client) Atual(ctx context.Context, l Local) (float64, error) {
 	erroDeDecode := json.Unmarshal(corpo, &r)
 
 	if resp.StatusCode != http.StatusOK {
-		// So' o 1006 significa "essa cidade nao existe". Chave recusada ou
-		// cota estourada tambem chegam como 4xx e nao podem virar 404 para o
-		// usuario — sao falha nossa, nao CEP invalido.
+		// Só o 1006 é "cidade não existe". Chave recusada e cota estourada
+		// também chegam como 4xx e não podem virar 404 para o usuário.
 		if erroDeDecode == nil && r.Error.Code == codigoLocalDesconhecido {
 			return 0, fmt.Errorf("localidade %q: %w", l.consulta(), ErrLocalNaoEncontrado)
 		}

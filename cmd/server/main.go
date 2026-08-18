@@ -21,14 +21,12 @@ func main() {
 
 	chave := os.Getenv("WEATHER_API")
 	if chave == "" {
-		// Falhar aqui e' de proposito: sem a chave, todo request vira 500.
-		// Melhor a revisao do Cloud Run nao subir do que subir quebrada.
+		// Melhor a revisão não subir do que subir devolvendo 500 em todo request.
 		log.Error("WEATHER_API nao configurada")
 		os.Exit(1)
 	}
 
-	// Cloud Run injeta PORT; 8080 e' o default da plataforma.
-	porta := os.Getenv("PORT")
+	porta := os.Getenv("PORT") // injetada pelo Cloud Run
 	if porta == "" {
 		porta = "8080"
 	}
@@ -41,8 +39,8 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// Cloud Run manda SIGTERM antes de recolher a instancia; sair sem drenar
-	// derruba requisicao em voo.
+	// Cloud Run manda SIGTERM antes de recolher a instância; sair sem drenar
+	// derruba requisição em voo.
 	parar := make(chan os.Signal, 1)
 	signal.Notify(parar, os.Interrupt, syscall.SIGTERM)
 

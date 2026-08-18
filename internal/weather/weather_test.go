@@ -62,8 +62,7 @@ func TestAtual(t *testing.T) {
 				if got := q.Get("key"); got != "chave-de-teste" {
 					t.Errorf("key = %q, quero chave-de-teste", got)
 				}
-				// A cidade sozinha e' ambigua no Brasil; a UF e o pais entram
-				// na consulta de proposito.
+				// Cidade sozinha e' ambigua: UF e pais entram de proposito.
 				if got := q.Get("q"); got != "São Paulo,SP,Brazil" {
 					t.Errorf("q = %q, quero São Paulo,SP,Brazil", got)
 				}

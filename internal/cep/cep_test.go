@@ -17,14 +17,8 @@ func TestValidar(t *testing.T) {
 	}
 
 	invalidos := []string{
-		"",           // vazio
-		"1234567",    // 7 digitos
-		"123456789",  // 9 digitos
-		"01153-000",  // hifen e' caractere invalido
-		"0115300a",   // letra
-		" 01153000",  // espaco a esquerda
-		"01153000 ",  // espaco a direita
-		"abcdefgh",   // so letras
+		"", "1234567", "123456789", "01153-000",
+		"0115300a", " 01153000", "01153000 ", "abcdefgh",
 	}
 	for _, v := range invalidos {
 		if !errors.Is(Validar(v), ErrFormatoInvalido) {
@@ -51,14 +45,14 @@ func TestBuscar(t *testing.T) {
 			querUF:     "SP",
 		},
 		{
-			// A pegadinha: ViaCEP devolve 200 OK para CEP inexistente.
+			// ViaCEP devolve 200 OK para CEP inexistente.
 			nome:    "nao encontrado com erro string",
 			status:  http.StatusOK,
 			corpo:   `{"erro": "true"}`,
 			querErr: ErrNaoEncontrado,
 		},
 		{
-			// A mesma API ja devolveu booleano em vez de string.
+			// O mesmo campo ja veio como booleano.
 			nome:    "nao encontrado com erro booleano",
 			status:  http.StatusOK,
 			corpo:   `{"erro": true}`,

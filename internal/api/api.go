@@ -1,5 +1,5 @@
-// Package api e' a borda HTTP: extrai o CEP da requisicao, costura a busca de
-// endereco com a de clima e traduz erro de dominio em status HTTP.
+// Package api é a borda HTTP: extrai o CEP, costura endereço com clima e
+// traduz erro de domínio em status.
 package api
 
 import (
@@ -13,11 +13,10 @@ import (
 	"desafio-labs-go-1/internal/weather"
 )
 
-// As duas interfaces abaixo sao declaradas aqui, no consumidor, e nao nos
-// pacotes que as satisfazem. E' o que permite testar o handler com dublês sem
-// que cep e weather saibam da existencia deste pacote.
+// As duas interfaces são declaradas aqui, no consumidor, e não nos pacotes que
+// as satisfazem: é o que permite testar o handler com dublês.
 
-// BuscadorDeCEP resolve um CEP em endereco.
+// BuscadorDeCEP resolve um CEP em endereço.
 type BuscadorDeCEP interface {
 	Buscar(ctx context.Context, codigo string) (cep.Endereco, error)
 }
@@ -27,8 +26,7 @@ type ConsultorDeClima interface {
 	Atual(ctx context.Context, local weather.Local) (float64, error)
 }
 
-// resposta e' o contrato de sucesso do desafio. Os nomes dos campos sao
-// literais do enunciado, inclusive o maiusculo depois do underscore.
+// Nomes literais do enunciado, inclusive o maiúsculo depois do underscore.
 type resposta struct {
 	TempC float64 `json:"temp_C"`
 	TempF float64 `json:"temp_F"`
@@ -42,7 +40,7 @@ type Handler struct {
 	mux   *http.ServeMux
 }
 
-// NewHandler monta o roteamento sobre as duas dependencias.
+// NewHandler monta o roteamento sobre as duas dependências.
 func NewHandler(ceps BuscadorDeCEP, clima ConsultorDeClima) *Handler {
 	h := &Handler{ceps: ceps, clima: clima}
 
@@ -51,11 +49,9 @@ func NewHandler(ceps BuscadorDeCEP, clima ConsultorDeClima) *Handler {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
-	// O enunciado nao fixa o caminho. Servimos as duas convencoes em uso —
-	// GET /{cep} e GET /?cep=... — para nao depender de adivinhar qual delas
-	// a correcao vai usar.
-	h.mux.HandleFunc("GET /{cep}", h.clima_por_cep)
-	h.mux.HandleFunc("GET /{$}", h.clima_por_cep)
+	// O enunciado não fixa o caminho; servimos as duas convenções em uso.
+	h.mux.HandleFunc("GET /{cep}", h.climaPorCEP)
+	h.mux.HandleFunc("GET /{$}", h.climaPorCEP)
 
 	return h
 }
@@ -64,7 +60,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
 
-func (h *Handler) clima_por_cep(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) climaPorCEP(w http.ResponseWriter, r *http.Request) {
 	codigo := r.PathValue("cep")
 	if codigo == "" {
 		codigo = r.URL.Query().Get("cep")
@@ -95,8 +91,7 @@ func (h *Handler) clima_por_cep(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// responderErro traduz erro de dominio em status HTTP. O corpo e' a mensagem
-// crua porque e' assim que o enunciado especifica os dois casos de falha.
+// O corpo é a mensagem crua porque é assim que o enunciado especifica as falhas.
 func responderErro(w http.ResponseWriter, err error) {
 	status, msg := classificar(err)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -111,8 +106,7 @@ func classificar(err error) (int, string) {
 	case errors.Is(err, cep.ErrNaoEncontrado):
 		return http.StatusNotFound, "can not find zipcode"
 
-	// Falha nossa nunca vira 404: dizer "CEP nao encontrado" quando o ViaCEP
-	// esta' fora do ar mente para quem chama e esconde o incidente.
+	// Falha nossa nunca vira 404: seria mentir para quem chama e esconder o incidente.
 	case errors.Is(err, weather.ErrSemChave):
 		return http.StatusInternalServerError, "internal error"
 	case errors.Is(err, cep.ErrIndisponivel),
